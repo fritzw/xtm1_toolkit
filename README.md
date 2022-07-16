@@ -18,7 +18,7 @@ Currently supported commands are:
 --gcode GCODE:
     DANGER! Execute the given GCODE line on the laser cutter. DANGER!
 --upload filename.gcode:
-    Upload the given C-code file to connected M1
+    Upload the given G-code file to connected M1
 --thickness:
     Measure the current material thickness using the red laser pinter
 --laserpointer on|off:

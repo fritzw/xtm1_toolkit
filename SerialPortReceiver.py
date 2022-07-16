@@ -7,11 +7,11 @@ import time
 from xtm1 import XTM1, GcodeSanitizer
 
 allowed_gcodes = {
-    b'G0',
-    b'G1',
-    b'G4',
-    b'G90',
-    b'G91',
+    b'G0', # Move without firing laser
+    b'G1', # Move and fire laser with current power setting
+    b'G4', # Pause
+    b'G90', # Switch to global/absolute coordinates
+    b'G91', # Switch to local/relative coordinates
     #b'G92', # M1 does not understand the set-position gcode
     #b'M03', # M1 crashes when it sees too many M3/M4/M5 gcodes.
     #b'M3',
@@ -19,6 +19,17 @@ allowed_gcodes = {
     #b'M4',
     #b'M05',
     #b'M5',
+}
+
+# These G-codes can be safely removed from the
+rejectable_gcodes = {
+    b'G21', # Switch to millimeter units. M1 is always in millimeter mode
+    b'M05', # Disable laser module. LightBurn uses G0 for non-laser moves, so disabling serves no purpose.
+    b'M5', # See M05
+    b'M8', # Start air assist. M1 does not have air assist.
+    b'M9', # Stop air assist. M1 does not have air assist.
+    b'M114', # Get current position. Emitted by LightBurn when Framing. Not useful because M1 sends no replies to G-code.
+    b'G00 G17 G40 G21 G54', # Strange G-code emitted by LightBurn when Framing
 }
 
 START_GCODE = b"""
@@ -112,10 +123,23 @@ while True:
         os.unlink(filename(i))
     else:
         print(f'Wrote {total_lines} lines to {filename(i)}. Filtered out the following lines:')
+        filtered_lines_okay = True
         for line in filtered_lines:
             print(f'  {line.strip().decode("utf-8")}')
-        while True:
-            answer = input('Upload file to Lasercutter (y/n)? ').lower()
-            if answer in ('y', 'n'): break
-        if answer == 'y':
-            m1.upload_gcode(file=filename(i))
+            if line.strip() not in rejectable_gcodes and line.split(maxsplit=1)[0] not in rejectable_gcodes:
+                print(f'WARNING! Unknown G-code was removed: {line}')
+                print('Will not upload this file. Please investigate further.')
+                filtered_lines_okay = False
+                break
+        if filtered_lines_okay:
+            while True:
+                answer = input(f'Upload {filename(i)} to Lasercutter (y/n/d[elete])? ').lower()
+                if answer in ('y', 'n', 'd'): break
+            if answer == 'y':
+                print('Okay, uploading. Press the blue button on the M1 to execute.')
+                m1.upload_gcode(file=filename(i))
+            elif answer == 'd' or answer == 'delete':
+                print(f'Okay, deleting file {filename(i)}.')
+                os.unlink(filename(i))
+            else:
+                print('Okay, then not.')

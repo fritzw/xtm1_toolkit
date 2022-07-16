@@ -79,20 +79,39 @@ class XTM1:
             raise RuntimeError(f'Device returned HTTP status {result.status_code} for GET {full_url}')
         return result.content
 
+
+
 class GcodeSanitizer():
+    """Translates LightBurn's Marlin G-code into a format understood by the M1.
+
+    Lightburn emits some G-code commands which are probably understood by Marlin
+    but confuse the M1. So we need to remove these confusion features in order
+    to execute the G-code on the M1.
+
+    Additionally, all Z coordinates in move commands will be inverted and subtracted
+    from self.material_height_zero_z. This is because the positive Z direction points
+    down in the M1, and the Z height for correct focus for material thickness zero is
+    Z=17. This way, setting the material thickness in LightBurn will be translated into
+    the correct Z movement for the M1.
+    """
     def __init__(self) -> None:
         self.material_height_zero_z = 17.0 # Actual Z coordinate for a material thickness of 0
-        self.s_regex = re.compile(b'(S[0-9])*\.[0-9]+')
-        self.z_regex = re.compile(b'^(G0?[0123].*Z)([-0-9]*\.[0-9]+)(.*)$')
+        self.lowest_z_height = 20.0 # This is to prevent crashing the blade into the bed
+        self.s_regex = re.compile(b'(S[0-9]*)\.[0-9]+')
+        self.z_regex = re.compile(b'^(G0?[0123].*Z)([-0-9]*(\.[0-9]+)?)(.*)$')
 
     @staticmethod
     def s_replace(match):
-        match.group(1)
+        "Remove all fractional decimal places from laser power G1 Snnn parameters."
+        return match.group(1)
 
     def z_replace(self, match):
-        z = float(match.group(2))
-        new_z = str(self.material_height_zero_z - z).encode('utf-8')
-        return match.group(1) + new_z + match.group(3)
+        "Invert the Z axis direction and apply the focus distance offset."
+        start, z, _decimal, rest = match.groups()
+        new_z = self.material_height_zero_z - float(z)
+        if new_z < 0 or new_z > self.lowest_z_height: # Protect the machine from erroneous calculations
+            raise RuntimeError(f'Z={new_z} outside of allowed range [0...{self.lowest_z_height}]. Original G-code was {match.group(0)}')
+        return start + str(new_z).encode('utf-8') + rest
 
     def process_line(self, line):
         # Lightburn can emit fractional laser power values like S123.4, which confuses the M1 firmware.
@@ -102,10 +121,12 @@ class GcodeSanitizer():
         # Lightburn sometimes emits move commands with a feed rate of zero. This hangs the M1 firmware.
         line = line.replace(b' F0', b' F9600')
         # Lightburn emits gcodes like G1 X0.1 I S100, but the I confuses the M1.
-        line = line.replace(b' I ', b'')
+        line = line.replace(b' I ', b' ')
         return line
 
     process_file = process_line
+
+
 
 class GcodeGlobalizer():
     """Can transform local coordinate to global coordinates in gcode.

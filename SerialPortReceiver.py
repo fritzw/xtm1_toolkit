@@ -4,8 +4,7 @@ import os
 from serial import Serial
 import time
 
-from xtm1 import XTM1
-from xtm1 import GcodeGlobalizer
+from xtm1 import XTM1, GcodeSanitizer
 
 allowed_gcodes = {
     b'G0',
@@ -62,10 +61,6 @@ if not exists(gcode_dir):
 def filename(i):
     return f'{gcode_dir}/output-{i:04}.gcode'
 
-def read_line(self, timeout=None):
-    self.timeout = timeout
-    return self.read_until()
-Serial.read_line = read_line
 
 m1 = XTM1()
 serial = Serial('COM8')
@@ -75,9 +70,12 @@ filtered_lines = set()
 i = 0
 while True:
     first_line = True
-    globalizer = GcodeGlobalizer()
-    print("\nWaiting for first gcode line...")
-    gcode: bytes = serial.read_line()
+    #globalizer = GcodeGlobalizer()
+    sanitizer = GcodeSanitizer()
+    print("\nWaiting for first gcode line... Stop with Ctrl+C")
+    serial.timeout = None # Wait forever for the first line
+    gcode: bytes = serial.read_until()
+    serial.timeout = 1 # Set a 1 second timeout for following lines to detect end of transmission
     total_lines = 0
     while exists(filename(i)) and os.path.getsize(filename(i)) > 0:
         i += 1 # Find free file name
@@ -86,28 +84,29 @@ while True:
         f.write(START_GCODE.strip() + b'\n\n')
         while True:
             if not first_line:
-                gcode = serial.read_line(timeout=1)
+                gcode = serial.read_until()
             first_line = False
             serial.write(b'ok\n')
 
-            if len(gcode.strip()) == 0:
+            if len(gcode) == 0:
                 break # Timeout while receiving commands, assume that file is done
-            if b'LASER_CUT_DONE' in gcode:
+            if b'LASER_CUT_DONE' in gcode: # You can put this into "End G-code" in LightBurn, followed by a newline, to mark the end of the file.
                 break # End of transmission
             if gcode.split(maxsplit=1)[0] not in allowed_gcodes:
                 filtered_lines.add(gcode)
                 continue
 
+            original_gcode = gcode
+            gcode = sanitizer.process_line(gcode)
             #global_gcode = globalizer.process_line(gcode.decode('utf-8'))
 
-            if len(gcode) > 0:
+            if len(gcode.strip()) > 0:
                 total_lines += 1
-                #print(global_gcode)
+                #f.write(b'; ' + original_gcode) # For debugging
                 f.write(gcode)
-                #f.write(b'; ' + gcode) # For debugging
                 #f.write(global_gcode.encode('utf-8'))
 
-        f.write(END_GCODE.strip() + b'\n')
+        f.write(b'\n' + END_GCODE.strip() + b'\n')
     if total_lines < 2:
         print("Not enough lines, deleting file.")
         os.unlink(filename(i))

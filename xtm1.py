@@ -27,7 +27,7 @@ class XTM1:
 
     def measure_thickness(self) -> float:
         reply = self._get_request('/camera?focus=9007199254740991,9007199254740991,0,0', port=self.CAMERA_PORT)
-        return json.loads(reply)['measure']
+        return float(json.loads(reply)['measure'])
 
     def get_camera_image(self) -> bytes:
         return self._get_request('/snap?stream=0', port=self.CAMERA_PORT)

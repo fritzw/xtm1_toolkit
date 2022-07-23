@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from asyncio import sleep
 from genericpath import exists
 import os

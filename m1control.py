@@ -1,4 +1,5 @@
-#!/usr/bin/end python3
+#!/usr/bin/env python3
+
 import sys
 from xtm1 import XTM1
 

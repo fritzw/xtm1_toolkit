@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import traceback
 from xtm1 import XTM1, GcodeTranslator
 
 translator = GcodeTranslator()
@@ -35,6 +36,7 @@ except IndexError:
 
 try:
     print(action())
-except IndexError:
-    print(f'Option {sys.argv[1]} needs an argument. Please look at the code.')
+except IndexError as ex:
+    print(f'\nOption {sys.argv[1]} needs an argument. Please look at the code.\n\n')
+    traceback.print_exception(type(ex), ex, ex.__traceback__)
     sys.exit(3)

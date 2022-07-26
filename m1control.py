@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
 import sys
-from xtm1 import XTM1
+from xtm1 import XTM1, GcodeTranslator
+
+translator = GcodeTranslator()
 
 m1 = XTM1()
+#m1 = XTM1('192.168.178.125')
 actions = {
     '--status': lambda: m1.get_status(),
     '--stop': lambda: m1.stop(),
     '--gcode': lambda: m1.execute_gcode_command(' '.join(sys.argv[2:])),
-    '--upload': lambda: m1.upload_gcode(file=sys.argv[2]),
+    '--upload': lambda: m1.upload_gcode_file(sys.argv[2]),
+    '--upload-z': lambda: m1.upload_gcode_file(sys.argv[2], material_thickness=float(sys.argv[3])),
+    '--upload-auto': lambda: m1.upload_gcode_file(sys.argv[2], material_thickness='auto'),
+    '--translate': lambda: translator.translate_file(sys.argv[2]),
     '--laserpointer': lambda: m1.set_laserpointer(sys.argv[2].lower() == 'on'),
     '--thickness': lambda: m1.measure_thickness(),
     '--light': lambda: m1.set_light_brightness(sys.argv[2]),

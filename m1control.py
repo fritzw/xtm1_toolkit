@@ -3,6 +3,7 @@
 import sys
 import traceback
 from xtm1 import XTM1, GcodeTranslator
+from gcode import GcodeFramer
 
 translator = GcodeTranslator()
 
@@ -12,6 +13,7 @@ actions = {
     '--status': lambda: m1.get_status(),
     '--stop': lambda: m1.stop(),
     '--gcode': lambda: m1.execute_gcode_command(' '.join(sys.argv[2:])),
+    '--frame': lambda: m1.upload_gcode(GcodeFramer().calculate_frame_file(sys.argv[2])),
     '--upload': lambda: m1.upload_gcode_file(sys.argv[2]),
     '--upload-z': lambda: m1.upload_gcode_file(sys.argv[2], material_thickness=float(sys.argv[3])),
     '--upload-auto': lambda: m1.upload_gcode_file(sys.argv[2], material_thickness='auto'),

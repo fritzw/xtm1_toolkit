@@ -169,6 +169,8 @@ class GcodeTranslator():
     the correct Z movement for the M1.
     """
 
+    class UnexpectedGcodeError(Exception): ...
+
     START_GCODE = dedent_bytes(b"""
     ;XTM1_HEADER_START;
     ; Set default speed for G0 and G1
@@ -271,7 +273,7 @@ class GcodeTranslator():
         command = line.split(maxsplit=1)[0]
         if command not in self.allowed_gcodes:
             if command not in self.rejectable_gcodes and line not in self.rejectable_gcodes:
-                raise ValueError(f'Unknown G-code: {line}. Please investigate this situation and decide whether to add it to GcodeTranslator.rejectable_gcodes')
+                raise self.UnexpectedGcodeError(f'Unknown G-code: {line}. Please investigate this situation and decide whether to add it to GcodeTranslator.rejectable_gcodes')
             self.filtered_lines.add(line)
             return b';--' + line # Disallowed line, comment out and mark as filtered
 

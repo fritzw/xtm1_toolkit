@@ -29,8 +29,9 @@
 int create_socket()
 {
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (-1 == setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)))
+        perror("setsockopt(SO_REUSEADDR) failed");
     struct sockaddr_in addr;
-
     addr.sin_family = AF_INET;
     addr.sin_port = htons(LISTEN_PORT);
     addr.sin_addr.s_addr = htonl(LISTEN_ADDRESS);

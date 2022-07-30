@@ -234,6 +234,7 @@ class GcodeTranslator():
         b'M9', # Stop air assist. M1 does not have air assist.
         b'M114', # Get current position. Emitted by LightBurn when Framing. Not useful because M1 sends no replies to G-code.
         b'G00 G17 G40 G21 G54', # Strange G-code emitted by LightBurn when Framing
+        b'LASER_JOB_START', b'LASER_JOB_END', # These are used for Streaming mode by LightBurnAdapter.py
     }
 
 

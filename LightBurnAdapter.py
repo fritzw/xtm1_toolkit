@@ -2,21 +2,37 @@
 
 import argparse
 import os
+import socket
 import subprocess as subp
+import sys
+from textwrap import dedent
 
 from serial import Serial
 
 from StreamLineReader import StreamLineReader
 from xtm1 import XTM1, GcodeTranslator
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(
+    description=dedent('''
+        Receive G-code from LightBurn, convert it to a format understood by the laser cutter, and then upload it to the laser cutter.
+        '''),    
+    epilog=dedent('''
+        One of the options --watch, --tcp or --serial is required to determine how G-code should be received.
+        Also, either of --usb or --ip is required to specify how to connect to the laser cutter.
+        ''')
+)
+
+def positive_integer(s: str) -> int:
+    i = int(s)
+    if i < 0: raise ValueError()
+    return i
 
 input_args = parser.add_mutually_exclusive_group(required=True)
 input_args.add_argument('--watch', '-w', nargs=1, metavar='DIR',
     help='Watch directory DIR for new G-code files to upload to laser cutter.')
 streaming_args = input_args.add_mutually_exclusive_group(required=False)
-streaming_args.add_argument('--tcp', '-t', action='store_true',
-    help='Listen for grbl-TCP connection from LightBurn on port 23')
+streaming_args.add_argument('--tcp', '-t', type=positive_integer, metavar='PORT', nargs='?', const=2323,
+    help='Listen for grbl-TCP connection from LightBurn on port PORT (default = 2323). PORT==0 will use tcp_bridge.')
 streaming_args.add_argument('--serial', '-s', nargs=1, metavar='PORT',
     help='Open the serial port PORT. Most likely this should be one port of a virtual serial port pair like com0com or tty0tty.')
 
@@ -30,12 +46,24 @@ ARGS = parser.parse_args()
 
 
 stream = None
-if ARGS.tcp:
+if ARGS.tcp == 0: # --tcp==0 means 'use tcp_bridge'
     tcp_process = subp.Popen('tcp_bridge/tcp_bridge', stdin=subp.PIPE, stdout=subp.PIPE)
     stream = StreamLineReader(tcp_process)
+elif ARGS.tcp: # --tcp was given with a positive port number
+    port = ARGS.tcp
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(('127.0.0.1', port))
+    print(f'Waiting for TCP connection on port {port}...')
+    sock.listen(1)
+    client_connection, _client_ddr = sock.accept()
+    stream = StreamLineReader(client_connection)
 elif ARGS.serial:
     serial = Serial(ARGS.serial)
     stream = StreamLineReader(serial)
+elif ARGS.watch:
+    print('Sorry, --watch is not implemeted yet.')
+    sys.exit(1)
 
 assert stream
 assert ARGS.ip

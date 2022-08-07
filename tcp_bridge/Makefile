@@ -1,4 +1,4 @@
-CFLAGS ?= -Wall -Werror -pedantic -DPORT=$(PORT)
+CFLAGS ?= -Wall -Werror -pedantic -D LISTEN_PORT=$(PORT)
 
 tcp_bridge: tcp_bridge.c
 	$(CC) $(CFLAGS) -o $@ $^

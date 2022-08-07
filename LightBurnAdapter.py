@@ -10,7 +10,9 @@ from textwrap import dedent
 from serial import Serial
 
 from StreamLineReader import StreamLineReader
-from xtm1 import XTM1, GcodeTranslator
+from xtm1 import XTM1, GcodeTranslator, UnexpectedGcodeError
+
+TIMEOUT_SECONDS = 1
 
 parser = argparse.ArgumentParser(
     description=dedent('''
@@ -78,61 +80,90 @@ def filename(i):
 
 m1 = XTM1(ARGS.ip)
 
-
-filtered_lines = set()
-timeout_seconds = 1
-
 i = 0
-while True:
-    is_first_line = True
-    print("\nWaiting for first gcode line... Stop with Ctrl+C")
+
+def receive_gcode_transmission():
+    global i
+    print("\nWaiting for LASER_JOB_START... Stop with Ctrl+C")
     line: bytes = stream.readline() # Wait forever for the first line
-    total_lines = 0
+    stream.write_flush(b'ok\n')
+    while not b'LASER_JOB_START' in line:
+        print(f'Received G-code {line.strip()} ... skipping')
+        # TODO: Check G-code line and possibly execute on machine immediately?
+        line = stream.readline() # Wait forever for the first line
+        stream.write_flush(b'ok\n')
+
     while os.path.exists(filename(i)) and (not os.path.isfile(filename(i))
                                             or os.path.getsize(filename(i)) > 0):
         i += 1 # Skip all names which exist and are either non-empty or not normal files
+    total_lines = 0
     with open(filename(i), 'wb') as f:
         print(f'{filename(i)}: starting')
         while True:
-            if not is_first_line:
-                line = stream.readline(timeout=timeout_seconds)
-            print(line)
-            is_first_line = False
+            line = stream.readline(timeout=TIMEOUT_SECONDS)
             stream.write(b'ok\n')
+            #print(line)
 
             if len(line) == 0:
                 break # Timeout while receiving commands, assume that file is done
-            if b'LASER_CUT_DONE' in line: # You can put this into "End G-code" in LightBurn, followed by a newline, to mark the end of the file.
+            if b'LASER_JOB_END' in line: # You can put this into "End G-code" in LightBurn, followed by a newline, to mark the end of the file.
                 break # End of transmission
-            original_gcode = line
-            #line = sanitizer.process_line(line)
-            #global_gcode = globalizer.process_line(line.decode('utf-8'))
 
             total_lines += 1
             f.write(line)
 
-    if total_lines < 4:
+    if total_lines < 4: # Filter out bogus files
         print("Not enough lines, deleting file.")
         os.unlink(filename(i))
-        continue # On to the next file
+        return # On to the next file
 
     print(f'Wrote {total_lines} lines to {filename(i)}. Now converting...')
     translator = GcodeTranslator()
     try:
         translated_file = translator.translate_file(filename(i))
-    except GcodeTranslator.UnexpectedGcodeError as e:
+    except UnexpectedGcodeError as e:
         print(e.args[0])
-        continue
+        return
     
+    print(f'Preparing to upload {translated_file} to laser cutter...')
+    print('Please enter material thickness in millimeters (or none/auto/cancel/delete).')
+    print('  "none" will not modify the Z height in the G-code.')
+    print('  "auto" will measure the appropriate Z height using the red laser pointer.')
+    print('  "cancel" will leave this file and wait to receive the next file.')
+    print('  "delete" will delete this file and wait to receive the next file.')
     answer = ''
-    while answer not in ('y', 'n', 'd', 'delete'):
-        answer = input(f'Upload {translated_file} to Lasercutter (y/n/d[elete])? ').lower()
-    if answer == 'y':
-        print('Okay, uploading. Press the blue button on the M1 to execute.')
-        m1.upload_gcode_file(filename=translated_file)
-    elif answer == 'd' or answer == 'delete':
+    while answer == '':
+        answer = input(f'Enter thickness or n/a/c/d: ').lower()
+        if 'cancel' in answer or answer == 'c':
+            answer = 'cancel'
+        elif 'delete' in answer or answer == 'd':
+            answer = 'delete'
+        elif 'none' in answer or answer == 'n':
+            thickness = None
+        elif 'auto' in answer or answer == 'a':
+            thickness = 'auto'
+        else:
+            try:
+                thickness = float(answer)
+            except ValueError:
+                print(f'Did not understand value: {answer}, please try again')
+                answer = '' # Repeat while loop
+    if answer == 'delete':
         print(f'Okay, deleting 2 files {filename(i)} and {translated_file}.')
         os.unlink(filename(i))
         os.unlink(translated_file)
+    elif answer == 'cancel':
+        print(f'Okay, not uploading {translated_file}.')
     else:
-        print('Not uploading {translated_file}.')
+        print('Okay, uploading {translated_file}.')
+        if (thickness == 'auto'):
+            print('Auto-measuring material thickness might take a while.')
+        print('Press the button on the M1 when it lights blue to execute the file.')
+        m1.upload_gcode_file(translated_file, material_thickness=thickness)
+
+try:
+    while True:
+        receive_gcode_transmission()
+except KeyboardInterrupt:
+    print('\nShutting down because of keyboard interrupt.')
+    sys.exit(0)

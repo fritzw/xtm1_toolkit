@@ -7,7 +7,7 @@ import sys
 current_dir = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(current_dir, '..'))
 
-from xtm1 import GcodeTranslator
+from xtm1 import GcodeTranslator, UnexpectedGcodeError
 
 @pytest.fixture
 def translator():
@@ -59,7 +59,7 @@ def test_gcode_removal(translator: GcodeTranslator):
     assert rest.strip() == b'G1 X1 Y1'
 
 def test_reject_unknown_gcodes(translator: GcodeTranslator):
-    with pytest.raises(ValueError):
+    with pytest.raises(UnexpectedGcodeError):
         translator.translate_file_content(b'G1 X1 Y1\nM123\nG0 X2 Y2')
 
 TEST_GCODE_Z1 = b'''

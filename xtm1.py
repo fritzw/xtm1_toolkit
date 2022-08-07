@@ -155,6 +155,8 @@ def dedent_bytes(text):
         text = re.sub(rb'(?m)^' + margin, b'', text)
     return text
 
+class UnexpectedGcodeError(Exception): ...
+
 class GcodeTranslator():
     """Translates LightBurn's Marlin G-code into a format understood by the M1.
 
@@ -168,8 +170,6 @@ class GcodeTranslator():
     Z=17. This way, setting the material thickness in LightBurn will be translated into
     the correct Z movement for the M1.
     """
-
-    class UnexpectedGcodeError(Exception): ...
 
     START_GCODE = dedent_bytes(b"""
     ;XTM1_HEADER_START;
@@ -274,7 +274,7 @@ class GcodeTranslator():
         command = line.split(maxsplit=1)[0]
         if command not in self.allowed_gcodes:
             if command not in self.rejectable_gcodes and line not in self.rejectable_gcodes:
-                raise self.UnexpectedGcodeError(f'Unknown G-code: {line}. Please investigate this situation and decide whether to add it to GcodeTranslator.rejectable_gcodes')
+                raise UnexpectedGcodeError(f'Unknown G-code: {line}. Please investigate this situation and decide whether to add it to GcodeTranslator.rejectable_gcodes')
             self.filtered_lines.add(line)
             return b';--' + line # Disallowed line, comment out and mark as filtered
 

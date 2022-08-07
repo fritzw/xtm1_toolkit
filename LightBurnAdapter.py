@@ -21,7 +21,7 @@ streaming_args.add_argument('--serial', '-s', nargs=1, metavar='PORT',
     help='Open the serial port PORT. Most likely this should be one port of a virtual serial port pair like com0com or tty0tty.')
 
 target_device_args = parser.add_mutually_exclusive_group(required=True)
-target_device_args.add_argument('--ip', nargs=1,
+target_device_args.add_argument('--ip',
     help='IP address of the laser cutter device.')
 target_device_args.add_argument('--usb', action='store_const', dest='ip', const='201.234.3.1',
     help='Connect to laser cutter via USB (which is a network interface with IP 201.234.3.1).')
@@ -101,7 +101,7 @@ while True:
         answer = input(f'Upload {translated_file} to Lasercutter (y/n/d[elete])? ').lower()
     if answer == 'y':
         print('Okay, uploading. Press the blue button on the M1 to execute.')
-        m1.upload_gcode(file=translated_file)
+        m1.upload_gcode_file(filename=translated_file)
     elif answer == 'd' or answer == 'delete':
         print(f'Okay, deleting 2 files {filename(i)} and {translated_file}.')
         os.unlink(filename(i))

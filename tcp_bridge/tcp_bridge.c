@@ -14,7 +14,6 @@
 #define IP_TO_INT(A, B, C, D) (((A) & 0xFF) << 24 | ((B) & 0xFF) << 16 | ((C) & 0xFF) << 8 | ((D) & 0xFF))
 
 #define LISTEN_ADDRESS IP_TO_INT(127,0,0,1)
-#define LISTEN_PORT 23
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 1
 

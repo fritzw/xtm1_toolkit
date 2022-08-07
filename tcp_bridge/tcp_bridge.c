@@ -1,14 +1,9 @@
-#include <arpa/inet.h>
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdio.h>
-//#include <netdb.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-//#include <string.h>
 #include <sys/select.h>
-//#include <sys/time.h>
 #include <stdlib.h>
 
 #define IP_TO_INT(A, B, C, D) (((A) & 0xFF) << 24 | ((B) & 0xFF) << 16 | ((C) & 0xFF) << 8 | ((D) & 0xFF))
@@ -16,13 +11,16 @@
 #define LISTEN_ADDRESS IP_TO_INT(127,0,0,1)
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 1
+#ifndef LISTEN_PORT
+    #define LISTEN_PORT 23
+#endif
 
 #define MAX(A, B) ((A) >= (B) ? (A) : (B))
 
 #ifdef NOISY
 #define fprintf fprintf
 #else
-#define fprintf(...)
+#define fprintf(...) // Don't print anything unless NOISY is defined
 #endif
 
 int create_socket()
@@ -48,7 +46,7 @@ int create_socket()
         perror("listenResult");
         exit(1);
     }
-    fprintf(stderr, "Server started, fd=%d\n", server_socket);
+    fprintf(stderr, "Server started, port=%d, fd=%d\n", LISTEN_PORT, server_socket);
     return server_socket;
 }
 

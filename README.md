@@ -16,9 +16,19 @@ Currently supported commands are:
 --stop:
     Stop current job,
 --gcode GCODE:
-    DANGER! Execute the given GCODE line on the laser cutter. DANGER!
+    DANGER! Immediately execute the given GCODE line on the laser cutter. DANGER!
 --upload filename.gcode:
-    Upload the given G-code file to connected M1
+    Translate and upload the given G-code file to connected M1
+--upload-z filename.gcode thickness:
+    Translate and upload the given G-code file to connected M1.
+    Modify the Z height in the file for the given material thickness
+    (thickness should be set to 0 in LightBurn)
+--upload-auto filename.gcode:
+    Translate and upload the given G-code file to connected M1.
+    Measure material thickness and modify the Z height in the file accordingly
+    (thickness should be set to 0 in LightBurn)
+--translate filename.gcode:
+    Translate the given G-code file to connected M1 but do not upload.
 --thickness:
     Measure the current material thickness using the red laser pinter
 --laserpointer on|off:
@@ -31,15 +41,21 @@ Currently supported commands are:
     Save the camera calibration coefficients (I guess) as camera-calibration.json
 ```
 
-## SerialPortReceiver.py
+## LightBurnAdapter.py
 
-This script will open a serial port, receive G-code lines, convert them to a format compatible with the M1 firmware, and write them to a file.
+This script will open a (virtual) serial port or a TCP port, receive G-code lines from LightBurn, convert them to a format compatible with the M1 firmware, and write them to a file.
 The file can then be uploaded to a connected M1 machine, where it can be executed by pressing the button (like normal).
 In order to use this, you probably want to use a virtual serial port like http://com0com.sourceforge.net/ and connect one end to LightBurn and the other to this script.
 
 This is necessary for camera calibration (and framing) because LightBurn will not let you save the G-code file for the camera calibration pattern.
 LightBurn will only send the G-code directly to a laser cutter connected via serial port, which does not work because the M1 does not provide a serial port (it registers as a USB network interface).
 This script talks to LightBurn, receives the G-code, and uploads it to the M1.
+
+### tcp_bridge
+If you want to listen on a TCP port below 1024 (default in LightBurn is 23) you need root privileges on Linux. Since running python scripts as root is a bad idea, the small C program `tcp_bridge` does nothing but opening a TCP port and passing data to the python script.
+
+Run `make PORT=n` to compile the program for listening on a specific port `n`.
+The resulting program `tcp_bridge` can then be given rights for the specific operation of opening ports by running `make setcap`.
 
 ## xtm1.py
 

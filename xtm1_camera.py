@@ -4,7 +4,7 @@ import os
 import tkinter as tk
 from queue import Queue
 from threading import Thread
-from time import sleep
+from time import sleep, time
 
 import cv2
 import numpy as np
@@ -75,15 +75,17 @@ def camera_stream(m1: XTM1, calibration_str=None, size=(1164, 874)):
                     image_queue.put(img.resize(size))
     get_image_thread: Thread = Thread(target=get_image)
     get_image_thread.start()
+    start_time = time()
     def update_image():
         nonlocal image_id, image, frame_i
         if not image_queue.empty():
             image = ImageTk.PhotoImage(image_queue.get())
             if image_id is not None: canvas.delete(image_id)
             image_id = canvas.create_image(0, 0, anchor=tk.NW, image=image)
-            root.title(f'Camera, Frame {frame_i}')
             frame_i += 1
-        root.after(100, update_image)
+            fps = frame_i / (time() - start_time)
+            root.title(f'Camera, {fps:0.2f} FPS, Frame {frame_i}')
+        root.after(20, update_image)
     root.after(100, update_image)
     root.mainloop()
     done = True

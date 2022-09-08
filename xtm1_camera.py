@@ -77,7 +77,7 @@ def camera_stream(m1: XTM1, calibration_str=None, size=(1164, 874)):
     get_image_thread.start()
     def update_image():
         nonlocal image_id, image, frame_i
-        if image_queue.not_empty:
+        if not image_queue.empty():
             image = ImageTk.PhotoImage(image_queue.get())
             if image_id is not None: canvas.delete(image_id)
             image_id = canvas.create_image(0, 0, anchor=tk.NW, image=image)
